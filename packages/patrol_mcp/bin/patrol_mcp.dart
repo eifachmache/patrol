@@ -238,12 +238,16 @@ Future<int> _runStdio(McpServer server) async {
 
 class _ExitSignal {
   _ExitSignal() {
-    _sigtermSubscription = ProcessSignal.sigterm.watch().listen(_handleSignal);
-    _sigintSubscription = ProcessSignal.sigint.watch().listen(_handleSignal);
+    if (!Platform.isWindows) {
+      _sigtermSubscription =
+          ProcessSignal.sigterm.watch().listen(_handleSignal);
+    }
+    _sigintSubscription =
+        ProcessSignal.sigint.watch().listen(_handleSignal);
   }
 
   final _completer = Completer<ProcessSignal>();
-  late final StreamSubscription<ProcessSignal> _sigtermSubscription;
+  StreamSubscription<ProcessSignal>? _sigtermSubscription;
   late final StreamSubscription<ProcessSignal> _sigintSubscription;
 
   Future<ProcessSignal> get wait => _completer.future;
@@ -256,7 +260,7 @@ class _ExitSignal {
   }
 
   void _cleanup() {
-    _sigtermSubscription.cancel();
+    _sigtermSubscription?.cancel();
     _sigintSubscription.cancel();
   }
 }
