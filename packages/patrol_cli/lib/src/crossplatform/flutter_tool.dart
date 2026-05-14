@@ -317,30 +317,40 @@ class FlutterTool {
   }
 
   /// Enables interactive mode. Returns the previous stdin modes.
-  StdinModes enableInteractiveMode() {
-    final stdinModes = StdinModes(
-      echoMode: io.stdin.echoMode,
-      lineMode: io.stdin.lineMode,
-    );
+  StdinModes? enableInteractiveMode() {
+    try {
+      final stdinModes = StdinModes(
+        echoMode: io.stdin.echoMode,
+        lineMode: io.stdin.lineMode,
+      );
 
-    // Prevents keystrokes from being printed automatically. Needs to be
-    // disabled for lineMode to be disabled too.
-    io.stdin.echoMode = false;
+      // Prevents keystrokes from being printed automatically. Needs to be
+      // disabled for lineMode to be disabled too.
+      io.stdin.echoMode = false;
 
-    // Causes the stdin stream to provide the input as soon as it arrives (one
-    // key press at a time).
-    io.stdin.lineMode = false;
+      // Causes the stdin stream to provide the input as soon as it arrives (one
+      // key press at a time).
+      io.stdin.lineMode = false;
 
-    _logger.detail('Interactive shell mode enabled.');
+      _logger.detail('Interactive shell mode enabled.');
 
-    return stdinModes;
+      return stdinModes;
+    } on io.StdinException catch (_) {
+      _logger.detail('Interactive shell mode not supported.');
+      return null;
+    }
   }
 
-  void revertInteractiveMode(StdinModes stdinModes) {
-    io.stdin.echoMode = stdinModes.echoMode;
-    io.stdin.lineMode = stdinModes.lineMode;
+  void revertInteractiveMode(StdinModes? stdinModes) {
+    if (stdinModes == null) return;
+    try {
+      io.stdin.echoMode = stdinModes.echoMode;
+      io.stdin.lineMode = stdinModes.lineMode;
 
-    _logger.detail('Interactive shell mode disabled.');
+      _logger.detail('Interactive shell mode disabled.');
+    } on io.StdinException catch (_) {
+      // Ignore
+    }
   }
 
   Future<void> _openDevtoolsPage(String url) async {
