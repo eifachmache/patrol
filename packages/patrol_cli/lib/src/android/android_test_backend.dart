@@ -48,7 +48,7 @@ class AndroidTestBackend {
   Future<void> build(AndroidAppOptions options) async {
     await buildApkConfigOnly(options.flutter);
     await loadJavaPathFromFlutterDoctor(options.flutter.command);
-    await detectOrchestratorVersion(options);
+    // await detectOrchestratorVersion(options); // Skipping: :app:dependencies takes 1-2 mins on every build!
 
     await _disposeScope.run((scope) async {
       final subject = options.description;
