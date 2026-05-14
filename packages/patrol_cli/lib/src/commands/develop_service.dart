@@ -469,10 +469,14 @@ class DevelopService {
     }
 
     subscriptions.add(ProcessSignal.sigint.watch().listen(cleanup));
-    try {
-      subscriptions.add(ProcessSignal.sigterm.watch().listen(cleanup));
-    } catch (_) {
-      // Some platforms may not support sigterm.
+    // Windows: SIGTERM listen throws errno 50; the error can surface async, so
+    // try/catch around watch().listen() is not enough. Skip SIGTERM on Windows.
+    if (!Platform.isWindows) {
+      try {
+        subscriptions.add(ProcessSignal.sigterm.watch().listen(cleanup));
+      } catch (_) {
+        // Some platforms may not support sigterm.
+      }
     }
 
     return subscriptions;

@@ -244,21 +244,34 @@ ${generateGroupsCode(testDirectory, [testFilePath]).split('\n').map((e) => '  $e
     bool web = false,
   }) {
     final imports = <String>[];
+    final bundleFile = getBundledTestFile(testDirectory, web: web);
+    final bundleDir = bundleFile.parent;
+
     for (final testFilePath in testFilePaths) {
       final relativeTestFilePath = _normalizeTestPath(
         testDirectory,
         testFilePath,
       );
       final testName = _createTestName(testDirectory, relativeTestFilePath);
-      final relativeTestFilePathWithoutSlash = relativeTestFilePath[0] == '/'
-          ? relativeTestFilePath.replaceFirst('/', '')
-          : relativeTestFilePath;
+      final relativeTestFilePathWithoutSlash =
+          relativeTestFilePath.isNotEmpty && relativeTestFilePath[0] == '/'
+              ? relativeTestFilePath.replaceFirst('/', '')
+              : relativeTestFilePath;
 
       // For web tests, include the test directory prefix in imports to ensure
       // correct path resolution since the bundle is at project root
-      final importPath = web
-          ? '$testDirectory/$relativeTestFilePathWithoutSlash'
-          : relativeTestFilePathWithoutSlash;
+      final String importPath;
+      if (web) {
+        importPath = '$testDirectory/$relativeTestFilePathWithoutSlash';
+      } else {
+        // Import must be relative to the bundle file (e.g. patrol_test/),
+        // not the project root — otherwise integration_test/... breaks when
+        // the bundle lives under patrol_test/.
+        final resolvedTest = _fs.file(testFilePath).absolute;
+        importPath = _fs.path
+            .relative(resolvedTest.path, from: bundleDir.path)
+            .replaceAll(_fs.path.separator, '/');
+      }
       imports.add("import '$importPath' as $testName;");
     }
 
@@ -301,24 +314,20 @@ ${generateGroupsCode(testDirectory, [testFilePath]).split('\n').map((e) => '  $e
   /// Normalizes [testFilePath] so that it always starts with
   /// the configured test directory.
   String _normalizeTestPath(String testDirectory, String testFilePath) {
-    var relativeTestFilePath = testFilePath.replaceAll(
-      _projectRoot.childDirectory(testDirectory).absolute.path,
-      '',
-    );
+    final absoluteTest = _fs.file(testFilePath).absolute;
+    final projectRootPath = _projectRoot.absolute.path;
 
-    if (relativeTestFilePath.startsWith(testDirectory)) {
-      relativeTestFilePath = relativeTestFilePath.replaceFirst(
-        testDirectory,
-        '',
-      );
+    // Robust for Windows: absolute paths and mixed separators may not match
+    // simple string replace against testDirectory root.
+    var relativeToProject = _fs.path
+        .relative(absoluteTest.path, from: projectRootPath)
+        .replaceAll(_fs.path.separator, '/');
+
+    if (relativeToProject.startsWith('$testDirectory/')) {
+      relativeToProject = relativeToProject.substring(testDirectory.length + 1);
     }
 
-    if (relativeTestFilePath.startsWith(_fs.path.separator)) {
-      relativeTestFilePath = relativeTestFilePath.substring(1);
-    }
-
-    // Dart source code uses forward slash.
-    return relativeTestFilePath.replaceAll(_fs.path.separator, '/');
+    return relativeToProject;
   }
 
   String _createTestName(String testDirectory, String relativeTestFilePath) {
